@@ -40,7 +40,7 @@
             <!-- axe-core accessibility rules, run inside the Playwright page -->
             <groupId>com.deque.html.axe-core</groupId>
             <artifactId>playwright</artifactId>
-            <version>4.10.1</version>
+            <version>4.14.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>
