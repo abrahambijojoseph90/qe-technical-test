@@ -19,7 +19,7 @@
         <assertj.version>3.26.3</assertj.version>
         <json-schema-validator.version>1.5.3</json-schema-validator.version>
         <surefire.version>3.5.2</surefire.version>
-        <allure.version>2.29.1</allure.version>
+        <allure.version>2.35.5</allure.version>
         <allure-maven.version>2.15.2</allure-maven.version>
 
         <!-- Tests tagged known-defect document bugs in the demo apps. They are left out of
