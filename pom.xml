@@ -20,7 +20,7 @@
         <json-schema-validator.version>1.5.3</json-schema-validator.version>
         <surefire.version>3.5.2</surefire.version>
         <allure.version>2.29.1</allure.version>
-        <allure-maven.version>2.15.2</allure-maven.version>
+        <allure-maven.version>3.1.0</allure-maven.version>
 
         <!-- Tests tagged known-defect document bugs in the demo apps. They are left out of
              the normal run so the build reflects the health of the suite, not of the demo sites.
