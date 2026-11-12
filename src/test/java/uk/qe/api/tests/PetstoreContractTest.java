@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * message, and we decide on purpose whether to update our copy and tests.
  */
 @Tag("api")
+@Tag("regression")
 @DisplayName("API - Petstore contract has not changed")
 class PetstoreContractTest {
 

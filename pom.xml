@@ -19,6 +19,8 @@
         <assertj.version>3.26.3</assertj.version>
         <json-schema-validator.version>1.5.3</json-schema-validator.version>
         <surefire.version>3.5.2</surefire.version>
+        <allure.version>2.29.1</allure.version>
+        <allure-maven.version>2.15.2</allure-maven.version>
 
         <!-- Tests tagged known-defect document bugs in the demo apps. They are left out of
              the normal run so the build reflects the health of the suite, not of the demo sites.
@@ -32,6 +34,13 @@
             <groupId>com.microsoft.playwright</groupId>
             <artifactId>playwright</artifactId>
             <version>${playwright.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <!-- axe-core accessibility rules, run inside the Playwright page -->
+            <groupId>com.deque.html.axe-core</groupId>
+            <artifactId>playwright</artifactId>
+            <version>4.10.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -65,6 +74,13 @@
             <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <!-- Records each test's result, steps and attachments for the Allure report -->
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-junit5</artifactId>
+            <version>${allure.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -76,6 +92,9 @@
                 <configuration>
                     <groups>${groups}</groups>
                     <excludedGroups>${excludedGroups}</excludedGroups>
+                    <systemPropertyVariables>
+                        <allure.results.directory>${project.build.directory}/allure-results</allure.results.directory>
+                    </systemPropertyVariables>
                     <!-- Print the @DisplayName text in the console instead of method names -->
                     <statelessTestsetInfoReporter
                             implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5StatelessTestsetInfoReporter">
@@ -94,6 +113,20 @@
                         <usePhrasedTestCaseClassName>true</usePhrasedTestCaseClassName>
                         <usePhrasedTestCaseMethodName>true</usePhrasedTestCaseMethodName>
                     </statelessTestsetReporter>
+                </configuration>
+            </plugin>
+
+            <!-- mvn allure:report writes the readable report to target/allure-report/index.html.
+                 It is one self-contained file, so it opens straight from disk or a CI artifact. -->
+            <plugin>
+                <groupId>io.qameta.allure</groupId>
+                <artifactId>allure-maven</artifactId>
+                <version>${allure-maven.version}</version>
+                <configuration>
+                    <reportVersion>2.30.0</reportVersion>
+                    <resultsDirectory>allure-results</resultsDirectory>
+                    <reportDirectory>${project.build.directory}/allure-report</reportDirectory>
+                    <singleFile>true</singleFile>
                 </configuration>
             </plugin>
 

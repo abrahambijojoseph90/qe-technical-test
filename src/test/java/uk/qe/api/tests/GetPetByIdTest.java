@@ -42,6 +42,7 @@ import static uk.qe.api.support.PetstoreAssertions.assertPetstoreError;
  *   3. the actual values, compared with what we expect
  */
 @Tag("api")
+@Tag("regression")
 @DisplayName("API - GET /pet/{petId}")
 class GetPetByIdTest {
 
@@ -87,6 +88,7 @@ class GetPetByIdTest {
     // ---------- positive ----------
 
     @Test
+    @Tag("smoke")
     @DisplayName("returns 200 and the same pet that was created")
     void returnsThePetThatWasCreated() {
         Pet newPet = PetTestData.availableDog();
@@ -105,6 +107,7 @@ class GetPetByIdTest {
     // ---------- negative ----------
 
     @Test
+    @Tag("smoke")
     @DisplayName("returns 404 'Pet not found' for an id that does not exist")
     void returnsNotFoundForUnknownId() {
         long idThatWasNeverCreated = PetTestData.uniqueId();

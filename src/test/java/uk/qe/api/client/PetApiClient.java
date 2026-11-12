@@ -30,6 +30,17 @@ public class PetApiClient {
         return request.post("pet", options);
     }
 
+    public APIResponse updatePet(Pet pet) {
+        RequestOptions options = RequestOptions.create()
+                .setHeader("Content-Type", "application/json")
+                .setData(toJson(pet));
+        return request.put("pet", options);
+    }
+
+    public APIResponse findByStatus(String status) {
+        return request.get("pet/findByStatus", RequestOptions.create().setQueryParam("status", status));
+    }
+
     public APIResponse getPet(long petId) {
         return request.get("pet/" + petId);
     }

@@ -81,7 +81,85 @@ Some things belong lower still. Validation rules and id parsing (the Petstore de
 
 The UI test in this repo already mixes layers on purpose: the browser drives the journey being tested, and the API handles everything around it.
 
-## Defects found in the Petstore demo
+## Test levels in this repo
+
+| Level | Tests | What it proves |
+|---|---|---|
+| Unit (of the test code) | `ResponseChecksSelfTest` | The checks really reject bad responses. No network. |
+| Contract | Schema checks on every response, `PetstoreContractTest` | Responses match the published Swagger contract, and the contract hasn't changed |
+| API | `GetPetByIdTest` | One endpoint in depth: positive, negative and boundary cases |
+| Integration | `PetLifecycleTest`, `EmployeeSearchTest` | Parts agree with each other about the same data. Five Petstore endpoints see the same pet at each stage. An employee created through OrangeHRM's API is found by the UI search. |
+| End to end | `AddEmployeeTest` (happy path) | A real user journey through the browser, from the form to the database and back out through a different page |
+| Accessibility, security | `AccessibilityTest`, `OrangeHrmSecurityTest` | Non-functional checks, see below |
+
+`EmployeeSearchTest` shows the layering rule in practice. Its subject is the search, so the employee is created through the API in a fraction of a second, and only the search goes through the browser. `AddEmployeeTest` is the other way round: the form is the subject, so it goes through the UI, and the API is used only to clean up.
+
+## Unit tests and contract tests
+
+**Unit tests** belong in the code of the services, not in this repo. This repo tests the systems from the outside, so it cannot reach their internals. Where I would expect them:
+
+| Rule | Where the unit test lives |
+|---|---|
+| Pet id must be a whole number, otherwise 400 (defect 1) | Petstore's request parsing. This is where the bug actually is. |
+| `name` and `photoUrls` are required (defect 2), status must be one of the allowed values (defect 5) | Petstore's validation of the request body |
+| First and last name required, maximum lengths, employee id unique | OrangeHRM's employee validation, both the Vue form and the PHP API |
+
+The repo does have unit tests of its own: `ResponseChecksSelfTest` tests the test code. It proves the schema check and the strict reader really reject bad responses, with no network.
+
+**Contract tests.** Consumer-driven contract testing with Pact needs both sides: the consumer writes down what it relies on, and the provider runs those expectations in its own pipeline before it releases. The Petstore is somebody else's public service. I can't add a check to its pipeline, so a Pact provider verification has nowhere to run.
+
+What this repo does instead is closer to provider-contract testing:
+
+- every response is validated against the provider's own published contract (the Swagger definitions, made strict), and
+- `PetstoreContractTest` compares the live `swagger.json` with our saved copy, so a change to the contract shows up as one clear failure.
+
+That catches a provider that breaks its own published contract, or changes it. It doesn't catch a change that the contract still allows but that a consumer happens to depend on. That gap is what Pact closes.
+
+Where both sides are owned by the same organisation, such as a front end and the API behind it, I would put Pact between them: consumer tests in the front end's build publish the pact to a broker, the API verifies it on every build, and `can-i-deploy` runs before each release to either side. Contract tests then take over most of the "does the UI still match the API" risk, and the end-to-end suite only needs to cover a few journeys.
+
+## Accessibility
+
+`AccessibilityTest` runs the axe-core rules for WCAG 2.2 levels A and AA (the level UK public sector services must meet) on the three pages the UI tests already visit: login, Add Employee and the Employee List.
+
+The demo already fails several rules, for example buttons with no accessible name, form fields without labels, and text without enough colour contrast. If the test simply required "no violations", it would always be red and people would stop looking at it. So each page has a list of known issues in `accessibility/known-issues.properties`:
+
+- a new kind of issue on a page fails the build, so things can't get worse without anyone noticing, and
+- an issue that has been fixed but is still on the list also fails, so the list only ever gets shorter.
+
+A separate `known-defect` test states what the page should be: no serious or critical issues at all. Every scan writes a readable report to `target/accessibility/` and attaches it to the test report.
+
+Automated rules only find around a third of accessibility problems. The rest need a person: using the forms with only a keyboard, checking focus order and visible focus, and going through the journey with a screen reader (NVDA or VoiceOver). I'd plan those as manual checks for every significant UI change.
+
+## Security
+
+`OrangeHrmSecurityTest` covers cheap checks that are worth running every time:
+
+| Check | Why |
+|---|---|
+| The employee API returns 401 without a session, and no data | Access control is the most important security property of an HR system |
+| A protected page redirects to the login page | The same rule from the browser's side |
+| The session cookie is `Secure`, `HttpOnly` and `SameSite` | Stops the session being sent over plain HTTP, read by injected scripts, or sent with cross-site requests |
+| HTTPS-only (HSTS) and `nosniff` headers are present | Standard browser protections |
+| After logout, the old session cookie no longer works | Logout has to end the session on the server, not just in the browser |
+
+Two checks fail on the demo and are tagged `known-defect` (defects 7 and 8 below).
+
+These checks don't replace a security test. With more time I'd add an OWASP ZAP baseline scan in its own pipeline job, and role-based access tests (an ordinary employee must not reach admin pages or other people's records, including by typing the URL). Dependabot keeps this repo's own dependencies up to date.
+
+## How the tests run in CI
+
+| When | What runs |
+|---|---|
+| Every pull request | The smoke gate: the `smoke` tests (reading a pet, pet not found, adding an employee) plus the offline self-checks. A few minutes. |
+| Merge to main, weekday mornings, on demand | Full regression, with the API and UI suites as two parallel jobs |
+
+The smoke tests are the few that would hurt most if they broke. Everything else is in regression. A pull request gate has to be fast, or people stop waiting for it. Accessibility scans take over a minute and the security checks need a separate login, so they run in regression rather than in the gate.
+
+Running the API and UI tests at the same time is safe. Each test creates its own uniquely named data and removes it afterwards, no test depends on another, each UI test gets a fresh browser context, and parallel jobs run on separate machines. Known-defect tests never run in CI, so a red build always means something new.
+
+## Defects found
+
+### Found in the Petstore
 
 I found these while exploring the API. The spec I compared against is https://petstore.swagger.io/v2/swagger.json.
 
@@ -93,6 +171,15 @@ I found these while exploring the API. The spec I compared against is https://pe
 | 4 | `POST /pet` with `{}` | Rejected | 200, given id `9223372036854775807` (the largest Java long) | Every empty create lands on the same id and overwrites the last one. |
 | 5 | `GET /pet/findByStatus?status=flying` | 400 Invalid status value | 200 with an empty list | A typo in a client looks like "no pets", and nobody notices. |
 | 6 | `DELETE /pet/{id}` for a pet already deleted | 404 Pet not found | 404 with an empty body | Minor: inconsistent with the JSON error body used everywhere else. |
+
+### Found in OrangeHRM
+
+| # | Where | Expected | Actual | Impact |
+|---|---|---|---|---|
+| 7 | Response headers | `X-Frame-Options` or a CSP `frame-ancestors` rule | Neither is set | Another site can load the pages in a hidden frame and trick a logged-in user into clicking (clickjacking). Automated as a `known-defect` test. |
+| 8 | `Server` header | No software versions | `nginx/1.18.0 (Ubuntu)` | Tells an attacker exactly which versions to look up. The Petstore does the same (`Jetty(9.2.9.v20150224)`, a 2015 release). Automated as a `known-defect` test. |
+| 9 | Content-Security-Policy | No `unsafe-inline` or `unsafe-eval` | Both allowed | Weakens the main browser defence against cross-site scripting. Not automated, because removing them needs changes to the app. |
+| 10 | Accessibility, all three pages | WCAG 2.2 AA | Buttons with no accessible name (103 on the Employee List), form fields without labels, low colour contrast, no page language, a badly built list | Screen reader users can't tell what the menu buttons do or what a field is for. Details in the test report after a run. |
 
 ## Trade-offs and challenges
 
@@ -127,13 +214,14 @@ The order is risk first: what would hurt users or the service most if it broke, 
 4. **Edit and delete an employee:** change personal details and confirm they persist, delete with the confirmation dialog, cancel a delete.
 5. **Role-based access:** an ESS (non-admin) user cannot see Admin or other people's PIM records, and cannot open them by typing the URL. Admin screens are only useful if non-admins really can't get to them.
 6. **Admin > User Management:** create a system user linked to an employee, password rules, disable a user and check they can no longer log in.
-7. **Accessibility:** run axe-core on the main pages (login, add employee, employee list), then check keyboard-only use of the add employee form. Public sector services have to meet WCAG 2.2 AA. Automated checks catch roughly a third of issues, so this goes with manual testing, not instead of it.
+7. **Accessibility beyond the automated scan:** keyboard-only use of the add employee form, focus order and visible focus, and a screen reader pass. The axe-core scans are already in place; these are the checks they can't do.
 8. **Cross-browser and mobile viewport:** run the critical journeys on Firefox and WebKit (already supported with `-Dbrowser=`) and a narrow viewport.
 9. **Leave and Time** modules: apply for leave, approve and reject, leave balance checks. Important to users, but they need a lot of data set-up, so later.
 
 ### The framework itself
 
-1. A CI pipeline (GitHub Actions) running the API tests on every pull request and the UI tests on merge and nightly, publishing the reports and traces as build artefacts.
-2. Run tests in parallel once there are more of them. Contexts are already isolated, so the change is small.
-3. Seeded test environments the team controls, instead of public demos.
-4. Contract tests (Pact) between the front end and the APIs it calls, so most of the "does the UI still match the API" risk is caught without a browser.
+1. Run tests in parallel inside each job once there are more of them. Contexts and data are already isolated, so the change is small.
+2. Seeded test environments the team controls, instead of public demos, so the smoke gate can safely block merges.
+3. Contract tests (Pact) between a front end and the APIs it calls, where we own both sides (see "Unit tests and contract tests").
+4. An OWASP ZAP baseline scan and a k6 performance baseline, each as its own scheduled pipeline job.
+5. Track flaky tests: record a pass on retry as flaky and report the number, rather than hiding it.

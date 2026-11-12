@@ -23,6 +23,7 @@ import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertTha
  * logged in (see UiTestBase), and the employee is removed through the API afterwards.
  */
 @Tag("ui")
+@Tag("regression")
 @DisplayName("UI - OrangeHRM PIM: add employee")
 class AddEmployeeTest extends UiTestBase {
 
@@ -37,6 +38,8 @@ class AddEmployeeTest extends UiTestBase {
     }
 
     @Test
+    @Tag("smoke")
+    @Tag("e2e")
     @DisplayName("a new employee is saved and can be found in the employee list")
     void newEmployeeIsSavedAndSearchable() {
         String uniquePart = String.valueOf(ThreadLocalRandom.current().nextInt(100_000, 999_999));

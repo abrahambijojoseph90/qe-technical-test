@@ -1,6 +1,7 @@
 package uk.qe.api.support;
 
 import com.microsoft.playwright.APIResponse;
+import io.qameta.allure.Allure;
 import uk.qe.api.model.ApiError;
 
 import java.util.List;
@@ -21,6 +22,8 @@ public final class PetstoreAssertions {
      */
     public static void assertMatchesContract(APIResponse response, String definitionName) {
         String body = response.text();
+        // Put every checked response in the report, so a reader can see what came back
+        Allure.addAttachment("Response " + response.status() + " " + response.url(), "application/json", body, "json");
 
         assertThat(response.headers().get("content-type"))
                 .as("content type")

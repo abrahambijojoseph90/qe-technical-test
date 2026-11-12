@@ -1,0 +1,12 @@
+# Weekly pull requests for outdated or vulnerable dependencies.
+# Each one goes through the smoke gate, so the tests are what accepts the update.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
